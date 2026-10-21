@@ -95,14 +95,18 @@
       .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.patientName).localeCompare(String(b.patientName)));
     const pending = pipeline.filter(item => !item.facturado);
     const pendingTotal = pending.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0);
+    const pendingMonths = Array.from(new Set(pending.map(item => monthKey(item.date)).filter(Boolean))).sort();
+    const pendingMonthText = pendingMonths.length === 1
+      ? monthLabel(pendingMonths[0])
+      : pendingMonths.length > 1 ? "varios meses" : "sin mes";
 
     setText("pipelineMontoFacturado", money(billedTotal));
     setText("pipelineRegistrosFacturados", `${billedRows.length} registro(s) facturado(s)`);
     setText("pipelineMontoPendiente", money(pendingTotal));
     setText("pipelineCitasPendientes", `${pending.length} cita(s) sin registro en SAI`);
     // El pipeline siempre es consolidado: el selector mensual solo modifica
-    // el monto facturado, nunca oculta citas ni altera lo pendiente de agenda.
-    setText("pipelineTituloPendiente", "Por recibir · agenda");
+    // el monto facturado. El encabezado identifica el mes de lo pendiente.
+    setText("pipelineTituloPendiente", `Por recibir · agenda · ${pendingMonthText}`);
 
     const body = byId("pipelineBody");
     if (body) {
