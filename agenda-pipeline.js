@@ -1,0 +1,117 @@
+// Pipeline financiero: cruza las citas del Calendario (Firestore) con
+// los registros facturados de Llenado SAI (Supabase). No escribe en ninguna
+// fuente; solamente muestra lo pendiente de registrar.
+(function () {
+  "use strict";
+
+  const FIRESTORE_PROJECT = "calendario-innvida";
+  const FIRESTORE_KEY = "AIzaSyAZ6_tjZZo0PSagzhEemYaOMgP6GxY1OQ0";
+  const SEDES = ["toluca", "morelia", "narvarte", "tijuana", "santafe"];
+  const NOMBRES_SEDE = { santafe: "Santa Fe", toluca: "Toluca", morelia: "Morelia", narvarte: "Narvarte", tijuana: "Tijuana" };
+
+  const byId = id => document.getElementById(id);
+  const money = value => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(Number(value) || 0);
+  const clean = value => String(value || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+  const safe = value => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#039;");
+
+  function firestoreValue(value) {
+    if (!value) return null;
+    if ("stringValue" in value) return value.stringValue;
+    if ("integerValue" in value) return Number(value.integerValue);
+    if ("doubleValue" in value) return Number(value.doubleValue);
+    if ("booleanValue" in value) return value.booleanValue;
+    if ("timestampValue" in value) return value.timestampValue;
+    if (value.mapValue) return Object.fromEntries(Object.entries(value.mapValue.fields || {}).map(([k, v]) => [k, firestoreValue(v)]));
+    if (value.arrayValue) return (value.arrayValue.values || []).map(firestoreValue);
+    return null;
+  }
+
+  function mapFirestoreDocument(doc, sede) {
+    const fields = Object.fromEntries(Object.entries(doc.fields || {}).map(([key, value]) => [key, firestoreValue(value)]));
+    return { ...fields, branch: fields.branch || sede };
+  }
+
+  async function getAppointments(sede) {
+    const all = [];
+    let token = "";
+    do {
+      const query = new URLSearchParams({ key: FIRESTORE_KEY, pageSize: "300" });
+      if (token) query.set("pageToken", token);
+      const url = `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT}/databases/(default)/documents/sedes/${sede}/appointments?${query}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Calendario respondió ${response.status}`);
+      const page = await response.json();
+      all.push(...(page.documents || []).map(doc => mapFirestoreDocument(doc, sede)));
+      token = page.nextPageToken || "";
+    } while (token);
+    return all;
+  }
+
+  async function getAllAppointments() {
+    const results = await Promise.all(SEDES.map(getAppointments));
+    return results.flat();
+  }
+
+  function doctorFromAppointment(appointment) {
+    if (appointment.doctor) return appointment.doctor;
+    const notes = String(appointment.notes || "");
+    const found = notes.match(/(?:medic[oa]\s*tratante|doctor|dra?\.?)[\s:.-]*([^,;\n]+)/i);
+    return found && found[1].trim() ? found[1].trim() : "Sin médico indicado";
+  }
+
+  // La llave incluye paciente + sede: evita que una coincidencia homónima en
+  // otra clínica elimine una cita que realmente sigue pendiente.
+  function saiKey(row) { return `${clean(row.paciente)}|${clean(row.sede)}`; }
+  function appointmentKey(appointment) { return `${clean(appointment.patientName)}|${clean(NOMBRES_SEDE[appointment.branch] || appointment.branch)}`; }
+
+  function setText(id, text) { const node = byId(id); if (node) node.textContent = text; }
+
+  function paint(appointments) {
+    const saiRows = typeof allRows !== "undefined" && Array.isArray(allRows) ? allRows : [];
+    const billedRows = saiRows.filter(row => row.montoServicio !== null && row.montoServicio !== undefined && row.montoServicio !== "");
+    const billedTotal = billedRows.reduce((sum, row) => sum + (Number(row.montoServicio) || 0), 0);
+    const registered = new Set(saiRows.filter(row => clean(row.paciente) && clean(row.sede)).map(saiKey));
+    const pending = appointments
+      .filter(item => clean(item.patientName) && Number(item.subtotal) > 0)
+      .filter(item => !registered.has(appointmentKey(item)))
+      .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.patientName).localeCompare(String(b.patientName)));
+    const pendingTotal = pending.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0);
+
+    setText("pipelineMontoFacturado", money(billedTotal));
+    setText("pipelineRegistrosFacturados", `${billedRows.length} registro(s) facturado(s)`);
+    setText("pipelineMontoPendiente", money(pendingTotal));
+    setText("pipelineCitasPendientes", `${pending.length} cita(s) sin registro en SAI`);
+
+    const body = byId("pipelineBody");
+    if (body) {
+      body.innerHTML = pending.length ? pending.map(item => {
+        const date = item.date ? new Date(item.date).toLocaleDateString("es-MX") : "Sin fecha";
+        return `<tr><td>${safe(item.patientName)}</td><td>${safe(NOMBRES_SEDE[item.branch] || item.branch || "Sin sede")}</td><td>${safe(doctorFromAppointment(item))}</td><td>${safe(date)}</td><td class="pipeline-money">${safe(money(item.subtotal))}</td></tr>`;
+      }).join("") : `<tr><td colspan="5" class="pipeline-empty">No hay montos pendientes: todas las citas con subtotal ya están registradas en SAI.</td></tr>`;
+    }
+  }
+
+  let loading = false;
+  window.actualizarPipelineAgenda = async function actualizarPipelineAgenda() {
+    if (loading || typeof allRows === "undefined" || !Array.isArray(allRows)) return;
+    loading = true;
+    const button = byId("btnActualizarPipeline");
+    if (button) button.disabled = true;
+    setText("pipelineEstado", "Actualizando citas del Calendario…");
+    try {
+      const appointments = await getAllAppointments();
+      paint(appointments);
+      setText("pipelineEstado", `Actualizado ${new Date().toLocaleString("es-MX")} · Se excluyen automáticamente las coincidencias paciente + sede ya registradas en SAI.`);
+    } catch (error) {
+      console.error("No se pudo leer el Calendario", error);
+      setText("pipelineEstado", "No se pudo consultar el Calendario. Verifica la conexión y los permisos de lectura de Firestore.");
+    } finally {
+      loading = false;
+      if (button) button.disabled = false;
+    }
+  };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    byId("btnActualizarPipeline")?.addEventListener("click", window.actualizarPipelineAgenda);
+  });
+})();

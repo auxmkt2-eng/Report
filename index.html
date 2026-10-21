@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Concentrado de facturacion. </title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="theme.js"></script>
+</head>
+<body>
+
+<div id="loginContainer" class="login-shell">
+  <button type="button" class="theme-toggle" data-theme-toggle>☀️ Claro</button>
+  <div class="login-card">
+    <h1>Acceso al panel</h1>
+    <p>Selecciona tu perfil e ingresa tu contraseña.</p>
+    <form id="loginForm">
+      <label>Usuario</label>
+      <input type="text" id="loginUsername" autocomplete="username" required placeholder="" />
+      <label>Contraseña</label>
+      <input type="password" id="loginPassword" autocomplete="current-password" required />
+      <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+      <p id="loginError" class="login-error">Usuario o contraseña incorrectos.</p>
+    </form>
+  </div>
+</div>
+
+<div id="appContainer" class="app-shell hidden">
+  <header class="hero">
+    <div>
+      <div class="eyebrow">Panel operativo</div>
+      <h1>Concentrado de facturacion. </h1>
+      <p>Filtra, revisa el estatus de cada factura confirmada sin salir del panel.</p>
+    </div>
+    <div class="hero-actions">
+      <span id="sesionInfo" class="session-pill"></span>
+      <button type="button" class="theme-toggle" data-theme-toggle>☀️ Claro</button>
+      <button id="btnCerrarSesion" class="btn btn-ghost">Salir</button>
+    </div>
+  </header>
+
+  <section id="panelDashboardAdmin" class="panel panel-executive hidden">
+    <div class="exec-head">
+      <div>
+        <div class="eyebrow">Solo administración</div>
+        <h2>Dashboard ejecutivo · Monto del servicio</h2>
+        <p class="muted">Visión consolidada de facturación por sede y tabla dinámica interactiva del concentrado.</p>
+      </div>
+      <span id="execActualizado" class="muted">—</span>
+    </div>
+
+    <div class="exec-tabs">
+      <button type="button" class="exec-tab-btn active" data-exec-tab="resumen">📊 Resumen ejecutivo</button>
+      <button type="button" class="exec-tab-btn" data-exec-tab="pivot">📊 Dashboard interactivo</button>
+    </div>
+
+    <div id="execTabResumen" class="exec-tab-panel">
+      <div class="exec-kpis">
+        <article class="exec-kpi exec-kpi-hero">
+          <span>Monto total de servicio</span>
+          <strong id="execMontoTotal">$0</strong>
+          <small id="execMontoRegistros">0 registros facturados</small>
+        </article>
+        <article class="exec-kpi">
+          <span>Ticket promedio</span>
+          <strong id="execTicketPromedio">$0</strong>
+          <small>por registro</small>
+        </article>
+        <article class="exec-kpi">
+          <span>Sede líder</span>
+          <strong id="execSedeLider">—</strong>
+          <small id="execSedeLiderMonto">$0</small>
+        </article>
+        <article class="exec-kpi" id="execCrecimientoCard">
+          <span>Mes actual vs anterior</span>
+          <strong id="execCrecimiento">—</strong>
+          <small id="execCrecimientoDetalle">Sin datos suficientes</small>
+        </article>
+      </div>
+
+      <div class="exec-kpis exec-kpis-secondary">
+        <article class="exec-kpi">
+          <span>Origen del pago</span>
+          <strong id="execOrigenPagoPct">—</strong>
+          <small id="execOrigenPagoDetalle">Sin datos suficientes</small>
+        </article>
+        <article class="exec-kpi">
+          <span>Pacientes recurrentes</span>
+          <strong id="execRetencionPct">—</strong>
+          <small id="execRetencionDetalle">Sin datos suficientes</small>
+        </article>
+        <article class="exec-kpi">
+          <span>Sede con mejor ticket promedio</span>
+          <strong id="execSedeMejorTicket">—</strong>
+          <small id="execSedeMejorTicketMonto">$0 por registro</small>
+        </article>
+      </div>
+    </div>
+
+    <div id="execTabPivot" class="exec-tab-panel hidden">
+      <div class="apartados-intro">
+        <div>
+          <h3>Explora el concentrado por apartado</h3>
+          <p class="muted">Elige una tarjeta y te mostramos automáticamente su mejor desglose: gráfica o tabla, con exportación a Excel incluida.</p>
+        </div>
+        <div class="pivot-field pivot-search">
+          <label>Buscar apartado</label>
+          <input type="text" id="apartadoBuscarCampo" placeholder="Ej. sede, médico, edad..." />
+        </div>
+      </div>
+
+      <div id="apartadosGrid" class="apartados-grid"></div>
+
+      <div id="apartadoDetalle" class="apartado-detalle">
+        <p class="muted apartado-vacio">Selecciona un apartado arriba para desglosarlo.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="panelAgendaPipeline" class="panel agenda-pipeline hidden" aria-live="polite">
+    <div class="pipeline-head">
+      <div>
+        <div class="eyebrow">Solo administración</div>
+        <h2>Pipeline de cobro de agenda</h2>
+        <p class="muted">Citas con subtotal pendiente en Calendario. Un paciente desaparece del pipeline en cuanto se registra en Llenado SAI para la misma sede.</p>
+      </div>
+      <button type="button" id="btnActualizarPipeline" class="btn btn-ghost">Actualizar agenda</button>
+    </div>
+
+    <div class="pipeline-kpis">
+      <article class="pipeline-kpi pipeline-kpi-total">
+        <span>Monto total de servicio</span>
+        <strong id="pipelineMontoFacturado">$0.00</strong>
+        <small id="pipelineRegistrosFacturados">0 registro(s) facturado(s)</small>
+      </article>
+      <article class="pipeline-kpi pipeline-kpi-pendiente">
+        <span>Por recibir · agenda</span>
+        <strong id="pipelineMontoPendiente">$0.00</strong>
+        <small id="pipelineCitasPendientes">0 cita(s) sin registro en SAI</small>
+      </article>
+    </div>
+
+    <p id="pipelineEstado" class="muted pipeline-status">Esperando los datos del concentrado…</p>
+    <div class="pipeline-table-wrap">
+      <table class="pipeline-table">
+        <thead><tr><th>Paciente</th><th>Sede</th><th>Doctor</th><th>Fecha de cita</th><th>Subtotal por recibir</th></tr></thead>
+        <tbody id="pipelineBody"><tr><td colspan="5" class="pipeline-empty">Cargando pipeline…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <main class="dashboard">
+    <section class="panel panel-kpis">
+      <div class="section-head">
+        <h2>KPIs operativos</h2>
+        <span id="ultimaActualizacion" class="muted">—</span>
+      </div>
+      <div class="kpi-grid">
+        <article class="kpi-card accent-blue">
+          <span>Subtotal</span>
+          <strong id="kpiSubtotal">0</strong>
+          <small id="kpiSubtotalMonto">$0</small>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel panel-filters">
+      <div class="section-head">
+        <h2>Filtros</h2>
+        <button id="btnLimpiarFiltros" class="btn btn-ghost">Limpiar filtros</button>
+      </div>
+      <div class="filters-grid">
+        <div class="field grow-2">
+          <label>Buscar por paciente</label>
+          <input type="text" id="filtroTexto" placeholder="Ej. folio, nombre del paciente..." />
+        </div>
+        <div class="field">
+          <label>Marca</label>
+          <div class="chip-group">
+            <label class="chip"><input type="checkbox" class="filtro-marca" value="SANARÉ" checked /> Sanaré</label>
+          </div>
+        </div>
+        <div class="field">
+          <label>Fecha operativa desde</label>
+          <input type="date" id="filtroFechaInicio" />
+        </div>
+        <div class="field">
+          <label>Fecha operativa hasta</label>
+          <input type="date" id="filtroFechaFin" />
+        </div>
+        <div class="field" id="campoFiltroSede">
+          <label>Sede</label>
+          <select id="filtroSede">
+            <option value="">Todas</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel panel-table">
+      <div class="section-head">
+        <h2>Tabla unificada</h2>
+        <div class="import-controls">
+          <select id="importMarca">
+            <option value="SANARÉ">Sanaré</option>
+          </select>
+          <select id="importSede" class="hidden" aria-label="Sede destino de la importación">
+            <option value="">Selecciona sede</option>
+            <option value="Morelia">Morelia</option>
+            <option value="Toluca">Toluca</option>
+            <option value="Narvarte">Narvarte</option>
+            <option value="Tijuana">Tijuana</option>
+            <option value="Santa Fe">Santa Fe</option>
+          </select>
+          <button id="btnImportarExcel" class="btn btn-primary hidden">Importar Excel</button>
+          <button id="btnExportarExcel" class="btn btn-ghost hidden">Exportar Excel</button>
+          <button id="btnNuevoRegistro" class="btn btn-primary">Nuevo registro</button>
+          <input type="file" id="inputExcelFile" accept=".xlsx,.xls" class="hidden" />
+        </div>
+        <span id="contadorFilas" class="muted">0 registros</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha Infusión</th>
+              <th>Semana</th>
+              <th>Servicio</th>
+              <th>Hora de Cita</th>
+              <th>Hora de Ingreso</th>
+              <th>Hora de Salida</th>
+              <th>Vía de Acceso</th>
+              <th>Tiempo de Infusión</th>
+              <th>Ciclo</th>
+              <th>No. de Ciclos</th>
+              <th>Paciente</th>
+              <th>Delegación de Origen</th>
+              <th>Edad</th>
+              <th>Sexo</th>
+              <th>Estatus de Paciente</th>
+              <th>Médicos</th>
+              <th>Tipo de tratamiento</th>
+              <th>Aseguradora y/o pago de bolsillo</th>
+              <th>Honorario médico</th>
+              <th>1º vez</th>
+              <th>Subtotal</th>
+              <th>Iva</th>
+              <th>Monto del servicio</th>
+              <th>Tratamiento</th>
+              <th>Diagnostico</th>
+              <th>Notas</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tablaCotizacionesBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="drawerBackdrop" class="drawer-backdrop hidden"></div>
+<aside id="drawer" class="drawer hidden">
+  <div class="drawer-head">
+    <div>
+      <div id="drawerMarca" class="eyebrow"></div>
+      <h2 id="drawerPaciente">Paciente</h2>
+      <p id="drawerMeta" class="muted"></p>
+    </div>
+    <button id="btnCerrarDrawer" class="btn btn-ghost">Cerrar</button>
+  </div>
+
+  <div class="drawer-body">
+    <section class="drawer-card">
+      <div class="section-head compact">
+        <h3>Resumen de cotización</h3>
+        <span class="muted">Edita los datos y guarda los cambios</span>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Fecha Infusión</label>
+          <input type="date" id="edFechaInfusion" />
+        </div>
+        <div class="field">
+          <label>Semana</label>
+          <input type="number" id="edSemana" min="1" />
+        </div>
+        <div class="field">
+          <label>Servicio</label>
+          <input type="text" id="edServicio" />
+        </div>
+        <div class="field">
+          <label>Hora de Cita</label>
+          <input type="text" id="edHoraCita" placeholder="08:30 hrs" />
+        </div>
+        <div class="field">
+          <label>Hora de Ingreso</label>
+          <input type="text" id="edHoraIngreso" placeholder="08:15 hrs" />
+        </div>
+        <div class="field">
+          <label>Hora de Salida</label>
+          <input type="text" id="edHoraSalida" placeholder="11:30 hrs" />
+        </div>
+        <div class="field">
+          <label>Vía de Acceso</label>
+          <input type="text" id="edViaAcceso" placeholder="Periférica / Catéter central / Puerto" />
+        </div>
+        <div class="field">
+          <label>Tiempo de Infusión</label>
+          <input type="text" id="edTiempoInfusion" placeholder="Ej. 2 hrs 30 min" />
+        </div>
+        <div class="field">
+          <label>Ciclo</label>
+          <input type="text" id="edCiclo" />
+        </div>
+        <div class="field">
+          <label>No. de Ciclos</label>
+          <input type="number" id="edNumeroCiclos" min="0" step="1" />
+        </div>
+        <div class="field grow-2">
+          <label>Paciente</label>
+          <input type="text" id="edPaciente" />
+        </div>
+        <div class="field">
+          <label>Delegación de Origen</label>
+          <input type="text" id="edDelegacion" />
+        </div>
+        <div class="field">
+          <label>Edad</label>
+          <input type="number" id="edEdad" min="0" step="1" />
+        </div>
+        <div class="field">
+          <label>Sexo</label>
+          <select id="edSexo">
+            <option value="">—</option>
+            <option value="F">F</option>
+            <option value="M">M</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Estatus de Paciente</label>
+          <input type="text" id="edEstatusPaciente" />
+        </div>
+        <div class="field">
+          <label>Médicos</label>
+          <input type="text" id="edMedicos" />
+        </div>
+        <div class="field">
+          <label>Tipo de tratamiento</label>
+          <input type="text" id="edTipoTratamiento" />
+        </div>
+        <div class="field">
+          <label>Aseguradora y/o pago de bolsillo</label>
+          <input type="text" id="edAseguradora" list="listaAseguradoras" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label>Honorario médico</label>
+          <input type="text" id="edHonorarioMedico" placeholder="Ej. 1500.00 o Pendiente de confirmar" />
+        </div>
+        <div class="field">
+          <label>1º vez</label>
+          <input type="text" id="edPrimeraVez" placeholder="SUBSECUENTE / 1 A VEZ" />
+        </div>
+        <div class="field">
+          <label>Subtotal</label>
+          <input type="number" id="edSubtotal" min="0" step="0.01" />
+        </div>
+        <div class="field">
+          <label>Iva</label>
+          <input type="number" id="edIva" min="0" step="0.01" />
+        </div>
+        <div class="field">
+          <label>Monto del servicio</label>
+          <input type="number" id="edMontoServicio" min="0" step="0.01" />
+        </div>
+        <div class="field grow-2">
+          <label>Tratamiento</label>
+          <input type="text" id="edTratamiento" />
+        </div>
+        <div class="field grow-2">
+          <label>Diagnostico</label>
+          <input type="text" id="edDiagnostico" />
+        </div>
+        <div class="field grow-2">
+          <label>Notas</label>
+          <input type="text" id="edNotas" />
+        </div>
+        <div class="field">
+          <label>Sede</label>
+          <input type="text" id="edSede" />
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="drawer-footer">
+    <button id="btnBorrarRegistro" class="btn btn-ghost btn-danger">Borrar registro</button>
+    <button id="btnGuardarDetalle" class="btn btn-primary">Guardar cambios</button>
+  </div>
+</aside>
+
+<div id="drawerNuevoBackdrop" class="drawer-backdrop hidden"></div>
+<aside id="drawerNuevoRegistro" class="drawer hidden">
+  <div class="drawer-head">
+    <div>
+      <div class="eyebrow">Captura</div>
+      <h2>Nuevo registro</h2>
+      <p id="nuevoRegistroSedeInfo" class="muted"></p>
+    </div>
+    <button id="btnCerrarDrawerNuevo" class="btn btn-ghost">Cerrar</button>
+  </div>
+
+  <div class="drawer-body">
+    <section class="drawer-card">
+      <div class="section-head compact">
+        <h3>Datos del tratamiento</h3>
+        <span class="muted">Mismos campos que el formato de Excel</span>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Fecha Infusión</label>
+          <input type="date" id="nrFechaInfusion" required />
+        </div>
+        <div class="field">
+          <label>Semana</label>
+          <input type="number" id="nrSemana" min="1" placeholder="1" />
+        </div>
+        <div class="field">
+          <label>Servicio</label>
+          <input type="text" id="nrServicio" placeholder="INFUSION" />
+        </div>
+        <div class="field">
+          <label>Hora de Cita</label>
+          <input type="time" id="nrHoraCita" />
+        </div>
+        <div class="field">
+          <label>Hora de Ingreso</label>
+          <input type="time" id="nrHoraIngreso" />
+        </div>
+        <div class="field">
+          <label>Hora de Salida</label>
+          <input type="time" id="nrHoraSalida" />
+        </div>
+        <div class="field">
+          <label>Vía de Acceso</label>
+          <input type="text" id="nrViaAcceso" placeholder="Periférica / Catéter central / Puerto" />
+        </div>
+        <div class="field">
+          <label>Tiempo de Infusión</label>
+          <input type="text" id="nrTiempoInfusion" placeholder="Ej. 2 hrs 30 min" />
+        </div>
+        <div class="field">
+          <label>Ciclo</label>
+          <input type="text" id="nrCiclo" placeholder="C1" />
+        </div>
+        <div class="field">
+          <label>No. de Ciclos</label>
+          <input type="number" id="nrNumeroCiclos" min="0" step="1" placeholder="1" />
+        </div>
+        <div class="field grow-2">
+          <label>Paciente</label>
+          <input type="text" id="nrPaciente" placeholder="Nombre completo del paciente" required />
+        </div>
+        <div class="field">
+          <label>Delegación de Origen</label>
+          <input type="text" id="nrDelegacion" placeholder="Ej. Cuauhtémoc" />
+        </div>
+        <div class="field">
+          <label>Edad</label>
+          <input type="number" id="nrEdad" min="0" step="1" placeholder="45" />
+        </div>
+        <div class="field">
+          <label>Sexo</label>
+          <select id="nrSexo">
+            <option value="">—</option>
+            <option value="F">F</option>
+            <option value="M">M</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Estatus de Paciente</label>
+          <input type="text" id="nrEstatusPaciente" placeholder="ACTIVO" />
+        </div>
+        <div class="field">
+          <label>Médicos</label>
+          <input type="text" id="nrMedicos" placeholder="Dr./Dra. Nombre" />
+        </div>
+        <div class="field">
+          <label>Tipo de tratamiento</label>
+          <input type="text" id="nrTipoTratamiento" placeholder="QT" />
+        </div>
+        <div class="field">
+          <label>Aseguradora y/o pago de bolsillo</label>
+          <input type="text" id="nrAseguradora" list="listaAseguradoras" placeholder="Escribe o elige de la lista..." autocomplete="off" />
+        </div>
+        <div class="field">
+          <label>Honorario médico</label>
+          <input type="text" id="nrHonorarioMedico" placeholder="Ej. 1500.00 o Pendiente de confirmar" />
+        </div>
+        <div class="field">
+          <label>1º vez</label>
+          <select id="nrPrimeraVez">
+            <option value="SUBSECUENTE">SUBSECUENTE</option>
+            <option value="1 A VEZ">1 A VEZ</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Subtotal</label>
+          <input type="number" id="nrSubtotal" min="0" step="0.01" placeholder="0.00" />
+        </div>
+        <div class="field">
+          <label>Iva</label>
+          <input type="number" id="nrIva" min="0" step="0.01" placeholder="0.00" />
+        </div>
+        <div class="field">
+          <label>Monto del servicio</label>
+          <input type="number" id="nrMontoServicio" min="0" step="0.01" placeholder="0.00" />
+        </div>
+        <div class="field grow-2">
+          <label>Tratamiento</label>
+          <input type="text" id="nrTratamiento" placeholder="Ej. R-CHOP" />
+        </div>
+        <div class="field grow-2">
+          <label>Diagnostico</label>
+          <input type="text" id="nrDiagnostico" placeholder="Diagnóstico del paciente" />
+        </div>
+        <div class="field">
+          <label>Notas</label>
+          <input type="text" id="nrNotas" placeholder="Escribe una nota" />
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="drawer-footer">
+    <button id="btnGuardarNuevoRegistro" class="btn btn-primary">Guardar registro</button>
+  </div>
+</aside>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="Supabaseclient.js"></script>
+<script src="Excelimport.js"></script>
+<script src="nuevoRegistro.js"></script>
+<script src="auth.js"></script>
+<script src="main.js"></script>
+<script src="dashboard.js"></script>
+<script src="agenda-pipeline.js"></script>
+
+<datalist id="listaAseguradoras">
+  <option value="Pago de bolsillo"></option>
+  <option value="GNP Seguros"></option>
+  <option value="AXA Seguros"></option>
+  <option value="MetLife México"></option>
+  <option value="Imbursa México"></option>
+  <option value="Plan Seguro"></option>
+  <option value="BBVA Seguros"></option>
+  <option value="Bupa México"></option>
+</datalist>
+
+</body>
+</html>
