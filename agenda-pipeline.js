@@ -113,8 +113,8 @@
       body.innerHTML = pipeline.length ? pipeline.map(item => {
         const date = item.date ? new Date(item.date).toLocaleDateString("es-MX") : "Sin fecha";
         const status = item.facturado ? `<span class="pipeline-status-badge billed">Facturado</span>` : `<span class="pipeline-status-badge pending">Por recibir</span>`;
-        return `<tr><td>${safe(item.patientName)}</td><td>${status}</td><td>${safe(NOMBRES_SEDE[item.branch] || item.branch || "Sin sede")}</td><td>${safe(doctorFromAppointment(item))}</td><td>${safe(date)}</td><td class="pipeline-money">${safe(money(item.subtotal))}</td></tr>`;
-      }).join("") : `<tr><td colspan="6" class="pipeline-empty">No hay citas con subtotal registrado en el Calendario.</td></tr>`;
+        return `<tr><td>${safe(item.patientName)}</td><td>${status}</td><td>${safe(NOMBRES_SEDE[item.branch] || item.branch || "Sin sede")}</td><td>${safe(date)}</td><td class="pipeline-money">${safe(money(item.subtotal))}</td></tr>`;
+      }).join("") : `<tr><td colspan="5" class="pipeline-empty">No hay citas con subtotal registrado en el Calendario.</td></tr>`;
     }
   }
 
