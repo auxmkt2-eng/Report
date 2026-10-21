@@ -71,10 +71,11 @@
     const billedRows = saiRows.filter(row => row.montoServicio !== null && row.montoServicio !== undefined && row.montoServicio !== "");
     const billedTotal = billedRows.reduce((sum, row) => sum + (Number(row.montoServicio) || 0), 0);
     const registered = new Set(saiRows.filter(row => clean(row.paciente) && clean(row.sede)).map(saiKey));
-    const pending = appointments
+    const pipeline = appointments
       .filter(item => clean(item.patientName) && Number(item.subtotal) > 0)
-      .filter(item => !registered.has(appointmentKey(item)))
+      .map(item => ({ ...item, facturado: registered.has(appointmentKey(item)) }))
       .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.patientName).localeCompare(String(b.patientName)));
+    const pending = pipeline.filter(item => !item.facturado);
     const pendingTotal = pending.reduce((sum, item) => sum + (Number(item.subtotal) || 0), 0);
 
     setText("pipelineMontoFacturado", money(billedTotal));
@@ -84,10 +85,11 @@
 
     const body = byId("pipelineBody");
     if (body) {
-      body.innerHTML = pending.length ? pending.map(item => {
+      body.innerHTML = pipeline.length ? pipeline.map(item => {
         const date = item.date ? new Date(item.date).toLocaleDateString("es-MX") : "Sin fecha";
-        return `<tr><td>${safe(item.patientName)}</td><td>${safe(NOMBRES_SEDE[item.branch] || item.branch || "Sin sede")}</td><td>${safe(doctorFromAppointment(item))}</td><td>${safe(date)}</td><td class="pipeline-money">${safe(money(item.subtotal))}</td></tr>`;
-      }).join("") : `<tr><td colspan="5" class="pipeline-empty">No hay montos pendientes: todas las citas con subtotal ya están registradas en SAI.</td></tr>`;
+        const status = item.facturado ? `<span class="pipeline-status-badge billed">Facturado</span>` : `<span class="pipeline-status-badge pending">Por recibir</span>`;
+        return `<tr><td>${safe(item.patientName)}</td><td>${status}</td><td>${safe(NOMBRES_SEDE[item.branch] || item.branch || "Sin sede")}</td><td>${safe(doctorFromAppointment(item))}</td><td>${safe(date)}</td><td class="pipeline-money">${safe(money(item.subtotal))}</td></tr>`;
+      }).join("") : `<tr><td colspan="6" class="pipeline-empty">No hay citas con subtotal registrado en el Calendario.</td></tr>`;
     }
   }
 
@@ -101,7 +103,7 @@
     try {
       const appointments = await getAllAppointments();
       paint(appointments);
-      setText("pipelineEstado", `Actualizado ${new Date().toLocaleString("es-MX")} · Se excluyen automáticamente las coincidencias paciente + sede ya registradas en SAI.`);
+      setText("pipelineEstado", `Actualizado ${new Date().toLocaleString("es-MX")} · Las coincidencias paciente + sede ya registradas en SAI se marcan como Facturado.`);
     } catch (error) {
       console.error("No se pudo leer el Calendario", error);
       setText("pipelineEstado", "No se pudo consultar el Calendario. Verifica la conexión y los permisos de lectura de Firestore.");

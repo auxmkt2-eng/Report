@@ -44,7 +44,7 @@
       <div>
         <div class="eyebrow">Solo administración</div>
         <h2>Pipeline de cobro de agenda</h2>
-        <p class="muted">Citas con subtotal pendiente en Calendario. Un paciente desaparece del pipeline en cuanto se registra en Llenado SAI para la misma sede.</p>
+        <p class="muted">Citas con subtotal del Calendario. Al registrarse en Llenado SAI, la cita permanece visible con el estatus Facturado.</p>
       </div>
       <button type="button" id="btnActualizarPipeline" class="btn btn-ghost">Actualizar agenda</button>
     </div>
@@ -65,8 +65,8 @@
     <p id="pipelineEstado" class="muted pipeline-status">Esperando los datos del concentrado…</p>
     <div class="pipeline-table-wrap">
       <table class="pipeline-table">
-        <thead><tr><th>Paciente</th><th>Sede</th><th>Doctor</th><th>Fecha de cita</th><th>Subtotal por recibir</th></tr></thead>
-        <tbody id="pipelineBody"><tr><td colspan="5" class="pipeline-empty">Cargando pipeline…</td></tr></tbody>
+        <thead><tr><th>Paciente</th><th>Estatus</th><th>Sede</th><th>Doctor</th><th>Fecha de cita</th><th>Subtotal</th></tr></thead>
+        <tbody id="pipelineBody"><tr><td colspan="6" class="pipeline-empty">Cargando pipeline…</td></tr></tbody>
       </table>
     </div>
   </section>
@@ -119,7 +119,7 @@
       </div>
     </section>
 
-    <section class="panel panel-table">
+    <section class="panel panel-table hidden" aria-hidden="true">
       <div class="section-head">
         <h2>Tabla unificada</h2>
         <div class="import-controls">
