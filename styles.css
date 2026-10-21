@@ -92,6 +92,9 @@ button, input, select { font: inherit; }
 /* Pipeline de cobro: cruza los montos registrados en SAI con la agenda. */
 .agenda-pipeline { margin-top: 1rem; }
 .pipeline-head { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
+.pipeline-actions { display:flex; align-items:center; gap:.65rem; flex-wrap:wrap; }
+.pipeline-actions label { color:var(--muted); font-size:.85rem; }
+.pipeline-actions select { min-width:175px; padding:.7rem .8rem; color:var(--text); background:rgba(15,29,49,.78); border:1px solid var(--line); border-radius:12px; }
 .pipeline-head h2 { margin:.3rem 0; }
 .pipeline-head p { max-width:780px; margin:0; line-height:1.45; }
 .pipeline-kpis { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:1rem; }

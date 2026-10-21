@@ -13,6 +13,8 @@
   const money = value => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(Number(value) || 0);
   const clean = value => String(value || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
   const safe = value => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#039;");
+  const monthKey = value => String(value || "").slice(0, 7);
+  const monthLabel = key => key ? new Date(`${key}-01T12:00:00`).toLocaleDateString("es-MX", { month: "long", year: "numeric" }) : "agenda";
 
   function firestoreValue(value) {
     if (!value) return null;
@@ -66,13 +68,30 @@
 
   function setText(id, text) { const node = byId(id); if (node) node.textContent = text; }
 
+  let latestAppointments = [];
+
+  function populateMonths(appointments, saiRows) {
+    const select = byId("pipelineMes");
+    if (!select) return;
+    const previous = select.value;
+    const months = new Set([
+      ...appointments.map(item => monthKey(item.date)),
+      ...saiRows.map(row => monthKey(row.fechaInfusion))
+    ].filter(Boolean));
+    select.innerHTML = `<option value="">Todos los meses</option>` + Array.from(months).sort().reverse().map(key => `<option value="${key}">${safe(monthLabel(key))}</option>`).join("");
+    select.value = months.has(previous) ? previous : "";
+  }
+
   function paint(appointments) {
     const saiRows = typeof allRows !== "undefined" && Array.isArray(allRows) ? allRows : [];
-    const billedRows = saiRows.filter(row => row.montoServicio !== null && row.montoServicio !== undefined && row.montoServicio !== "");
+    populateMonths(appointments, saiRows);
+    const selectedMonth = byId("pipelineMes")?.value || "";
+    const billedRows = saiRows.filter(row => row.montoServicio !== null && row.montoServicio !== undefined && row.montoServicio !== "").filter(row => !selectedMonth || monthKey(row.fechaInfusion) === selectedMonth);
     const billedTotal = billedRows.reduce((sum, row) => sum + (Number(row.montoServicio) || 0), 0);
     const registered = new Set(saiRows.filter(row => clean(row.paciente) && clean(row.sede)).map(saiKey));
     const pipeline = appointments
       .filter(item => clean(item.patientName) && Number(item.subtotal) > 0)
+      .filter(item => !selectedMonth || monthKey(item.date) === selectedMonth)
       .map(item => ({ ...item, facturado: registered.has(appointmentKey(item)) }))
       .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.patientName).localeCompare(String(b.patientName)));
     const pending = pipeline.filter(item => !item.facturado);
@@ -82,6 +101,7 @@
     setText("pipelineRegistrosFacturados", `${billedRows.length} registro(s) facturado(s)`);
     setText("pipelineMontoPendiente", money(pendingTotal));
     setText("pipelineCitasPendientes", `${pending.length} cita(s) sin registro en SAI`);
+    setText("pipelineTituloPendiente", `Por recibir · ${monthLabel(selectedMonth)}`);
 
     const body = byId("pipelineBody");
     if (body) {
@@ -101,8 +121,8 @@
     if (button) button.disabled = true;
     setText("pipelineEstado", "Actualizando citas del Calendario…");
     try {
-      const appointments = await getAllAppointments();
-      paint(appointments);
+      latestAppointments = await getAllAppointments();
+      paint(latestAppointments);
       setText("pipelineEstado", `Actualizado ${new Date().toLocaleString("es-MX")} · Las coincidencias paciente + sede ya registradas en SAI se marcan como Facturado.`);
     } catch (error) {
       console.error("No se pudo leer el Calendario", error);
@@ -115,5 +135,6 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     byId("btnActualizarPipeline")?.addEventListener("click", window.actualizarPipelineAgenda);
+    byId("pipelineMes")?.addEventListener("change", () => paint(latestAppointments));
   });
 })();

@@ -46,7 +46,11 @@
         <h2>Pipeline de cobro de agenda</h2>
         <p class="muted">Citas con subtotal del Calendario. Al registrarse en Llenado SAI, la cita permanece visible con el estatus Facturado.</p>
       </div>
-      <button type="button" id="btnActualizarPipeline" class="btn btn-ghost">Actualizar agenda</button>
+      <div class="pipeline-actions">
+        <label for="pipelineMes">Mes</label>
+        <select id="pipelineMes" aria-label="Filtrar pipeline por mes"><option value="">Todos los meses</option></select>
+        <button type="button" id="btnActualizarPipeline" class="btn btn-ghost">Actualizar agenda</button>
+      </div>
     </div>
 
     <div class="pipeline-kpis">
@@ -56,7 +60,7 @@
         <small id="pipelineRegistrosFacturados">0 registro(s) facturado(s)</small>
       </article>
       <article class="pipeline-kpi pipeline-kpi-pendiente">
-        <span>Por recibir · agenda</span>
+        <span id="pipelineTituloPendiente">Por recibir · agenda</span>
         <strong id="pipelineMontoPendiente">$0.00</strong>
         <small id="pipelineCitasPendientes">0 cita(s) sin registro en SAI</small>
       </article>
