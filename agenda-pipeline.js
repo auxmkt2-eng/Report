@@ -77,15 +77,22 @@
   function setText(id, text) { const node = byId(id); if (node) node.textContent = text; }
 
   let latestAppointments = [];
+  let monthInitialized = false;
+  const currentMonth = () => {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Mexico_City", year: "numeric", month: "2-digit" }).formatToParts(new Date());
+    return `${parts.find(part => part.type === "year").value}-${parts.find(part => part.type === "month").value}`;
+  };
 
   function populateMonths(appointments, saiRows) {
     const select = byId("pipelineMes");
     if (!select) return;
-    const previous = select.value;
+    const previous = monthInitialized ? select.value : currentMonth();
+    monthInitialized = true;
     const months = new Set([
       ...appointments.map(item => monthKey(item.date)),
       ...saiRows.map(row => monthKey(row.fechaInfusion))
     ].filter(Boolean));
+    months.add(currentMonth());
     select.innerHTML = `<option value="">Todos los meses</option>` + Array.from(months).sort().reverse().map(key => `<option value="${key}">${safe(monthLabel(key))}</option>`).join("");
     select.value = months.has(previous) ? previous : "";
   }
