@@ -108,6 +108,7 @@
       ? monthLabel(pendingMonths[0])
       : pendingMonths.length > 1 ? "varios meses" : "sin mes";
 
+    setText("pipelineTituloFacturado", `Monto total de servicio · ${selectedMonth ? monthLabel(selectedMonth) : "Todos los meses"}`);
     setText("pipelineMontoFacturado", money(billedTotal));
     setText("pipelineRegistrosFacturados", `${billedRows.length} registro(s) facturado(s)`);
     setText("pipelineMontoPendiente", money(pendingTotal));
